@@ -133,7 +133,7 @@ class PurchaseRequest(ModelSQL, ModelView):
 
         # fetch stockable products
         product_ids = product_obj.search([
-            ('type', '=', 'stockable'), 
+            ('type', '=', 'stockable'),
             ('purchasable', '=', True),
             ])
         #aggregate product by minimum supply date
@@ -400,6 +400,54 @@ class PurchaseRequest(ModelSQL, ModelView):
 PurchaseRequest()
 
 
+class CreatePurchaseRequestInit(ModelView):
+    'Create Purchase Request Init'
+    _name = 'purchase.request.create_purchase_request.init'
+    _description = __doc__
+
+CreatePurchaseRequestInit()
+
+
+class CreatePurchaseRequest(Wizard):
+    'Create Purchase Request'
+    _name = 'purchase.request.create_purchase_request'
+
+    states = {
+        'init': {
+            'result': {
+                'type': 'form',
+                'object': 'purchase.request.create_purchase_request.init',
+                'state': [
+                    ('end', 'Cancel', 'tryton-cancel'),
+                    ('create', 'Create', 'tryton-ok', True),
+                    ],
+                },
+            },
+        'create': {
+            'actions': ['_create_purchase_request'],
+            'result': {
+                'type': 'action',
+                'action': '_open',
+                'state': 'end',
+                },
+            },
+        }
+
+    def _create_purchase_request(self, data):
+        purchase_request_obj = self.pool.get('purchase.request')
+        purchase_request_obj.generate_requests()
+        return {}
+
+    def _open(self, data):
+        model_data_obj = self.pool.get('ir.model.data')
+        act_window_obj = self.pool.get('ir.action.act_window')
+        act_window_id = model_data_obj.get_id('stock_supply',
+            'act_purchase_request_form_draft')
+        return act_window_obj.read(act_window_id)
+
+CreatePurchaseRequest()
+
+
 class CreatePurchaseAskTerm(ModelView):
     'Create Purchase Ask Term'
     _name = 'purchase.request.create_purchase.ask_term'
@@ -620,7 +668,7 @@ class CreatePurchase(Wizard):
         for tax in request.product.supplier_taxes_used:
             if request.party and request.party.supplier_tax_rule:
                 pattern = self._get_tax_rule_pattern(request)
-                tax_id = tax_rule_obj.apply(request.party.supplier_tax_rule, 
+                tax_id = tax_rule_obj.apply(request.party.supplier_tax_rule,
                         tax, pattern)
                 if tax_id:
                     taxes.append(tax_id)
